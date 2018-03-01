@@ -84,8 +84,7 @@ public class WRBScript implements Script {
 
 	@Override 
 	public void setFunction(String name, Function fct) {
-		// unused, functions are set in visitor itself?
-		visitor.addFunction(name, (FunctionMap) fct); 
+		visitor.addFunction(name, fct); 
 	}
 
 	@Override

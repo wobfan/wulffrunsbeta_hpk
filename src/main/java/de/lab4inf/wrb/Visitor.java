@@ -11,14 +11,13 @@ import java.lang.Math;
 import de.lab4inf.wrb.WRBParser.*;
 
 public class Visitor extends WRBBaseVisitor<Double> {
-	private Map<String, Double> memory = new HashMap<>();
-	private Map<String, FunctionMap> functions = new HashMap<>();
-	// functions: <FUNC NAME, list>
-	// list: string_arr 0, string_arr 1
-	// string_arr 0: unbegrenzt lang, beinhaltet alle variablennamen
-	// string_arr 1: hat nur 1 element, einen String welcher die Funktionsvorschrift
-	// enthält.
+	private HashMap<String, Double> memory = new HashMap<>();
+	private HashMap<String, Function> functions = new HashMap<>();
 
+	public Visitor() {
+		FunctionMap.initMap(this, functions);
+	}
+	
 	@Override
 	public Double visitAssignment(AssignmentContext ctx) {
 		Integer number = null;
@@ -42,79 +41,9 @@ public class Visitor extends WRBBaseVisitor<Double> {
 
 			return Math.log(expr) / Math.log(base);
 		}
-
-		switch (ctx.ID().getText()) {
-		case "sqrt":
-			return Math.sqrt(expr);
-		case "sin":
-			return Math.sin(expr);
-		case "cos":
-			return Math.cos(expr);
-		case "tan":
-			return Math.tan(expr);
-		case "sinh":
-			return Math.sinh(expr);
-		case "cosh":
-			return Math.cosh(expr);
-		case "tanh":
-			return Math.tanh(expr);
-		case "asin":
-			return Math.asin(expr);
-		case "acos":
-			return Math.acos(expr);
-		case "atan":
-			return Math.atan(expr);
-		case "ln":
-			return Math.log(expr);
-		case "log":
-			return Math.log10(expr);
-		case "max":
-			//vlt später auslagern
-			double args[] = new double[ctx.expr().size()];
-			for (int i = 0; i < args.length; i++) {
-				args[i] = visit(ctx.expr(i));
-			}
-
-			double max = args[0];
-			for (int i = 0; i < args.length; i++) {
-				if (args[i] > max) {
-					max = args[i];
-				}
-			}
-			return max;
-		case "min":
-			//vlt später auslagern
-			double args1[] = new double[ctx.expr().size()];
-			for (int i = 0; i < args1.length; i++) {
-				args1[i] = visit(ctx.expr(i));
-			}
-
-			double min = args1[0];
-			for (int i = 0; i < args1.length; i++) {
-				if (args1[i] < min) {
-					min = args1[i];
-				}
-			}
-			return min;
-		case "pow":
-			return Math.pow(expr, visit(ctx.expr(1)));
-		case "abs":
-			return Math.abs(expr);
-		case "exp":
-			return Math.exp(expr);
-		case "ld":
-			return Math.log(expr) / Math.log(2);
-		case "lb":
-			return Math.log(expr) / Math.log(2);
-		case "logE":
-			return Math.log(expr);
-		case "floor":
-			return Math.floor(expr);
-		}
-
-		if (functions.containsKey(ctx.ID().getText())) {
+		else if (functions.containsKey(ctx.ID().getText())) {
 			String name = ctx.ID().getText();
-			FunctionMap function = functions.get(name);
+			Function function = functions.get(name);
 			double arguments[] = new double[ctx.expr().size()];
 			for (int i = 0; i < ctx.expr().size(); i++) {
 				arguments[i] = visit(ctx.expr(i));
@@ -122,6 +51,26 @@ public class Visitor extends WRBBaseVisitor<Double> {
 			return function.eval(arguments);
 		} else
 			throw new IllegalArgumentException(String.format("%s is no known function", ctx.ID().getText()));
+	}
+	
+	
+
+	@Override
+	public Double visitDiffint(DiffintContext ctx) {
+		if (ctx.getChild(0).getText().equals("f'")) {
+			if (ctx.expr().size() != 1) throw new IllegalArgumentException("too few/many arguments for differentiation: f'(function, value[, error])");
+			if (!functions.containsKey(ctx.ID().getText())) throw new IllegalArgumentException(ctx.ID().getText() + " is no known function to differentiate.");
+			
+			Differentiator diff = new Differentiator();
+			return diff.differentiate(functions.get(ctx.ID().getText()), visit(ctx.expr(0)));
+		}
+		else if (ctx.getChild(0).getText().equals("F")) {
+			if (ctx.expr().size() != 2) throw new IllegalArgumentException("too few/many arguments for integration: F(function, start, end[, error])");
+			if (!functions.containsKey(ctx.ID().getText())) throw new IllegalArgumentException(ctx.ID().getText() + " is no known function to differentiate.");
+			Integrator integr = new Integrator();
+			return integr.integrate(functions.get(ctx.ID().getText()), visit(ctx.expr(0)), visit(ctx.expr(1)));
+		}
+		return 0.0;
 	}
 
 	@Override
@@ -140,20 +89,20 @@ public class Visitor extends WRBBaseVisitor<Double> {
 
 	@Override
 	public Double visitPower(PowerContext ctx) {
-		
+
 		Double exp[] = new Double[ctx.powtypes().size() - 1];
 		Double base = visit(ctx.expr());
 		Double currentExp = visit(ctx.powtypes(ctx.powtypes().size() - 1));
-				
+
 		for (int i = exp.length - 1; i >= 0; i--) {
 			Double before = 0.0;
 			if (visit(ctx.powtypes(i)) != null) before = visit(ctx.powtypes(i));
 			else continue;
 			currentExp = Math.pow(before, currentExp);
 		}
-		
+
 		return Math.pow(base, currentExp);
-		
+
 	}
 
 	@Override
@@ -260,7 +209,7 @@ public class Visitor extends WRBBaseVisitor<Double> {
 		return functions.keySet();
 	}
 
-	public Map<String, Double> getMemory() {
+	public HashMap<String, Double> getMemory() {
 		return memory;
 	}
 
@@ -269,11 +218,11 @@ public class Visitor extends WRBBaseVisitor<Double> {
 		throw new IllegalArgumentException(String.format("%s is no valid function.", name));
 	}
 
-	public Map<String, FunctionMap> getFunctionHashmap() {
+	public HashMap<String, Function> getFunctionHashmap() {
 		return functions;
 	}
 
-	public Map<String, Double> getVariablesHashmap() {
+	public HashMap<String, Double> getVariablesHashmap() {
 		return memory;
 	}
 
@@ -281,7 +230,7 @@ public class Visitor extends WRBBaseVisitor<Double> {
 		memory.put(name, value);
 	}
 
-	public void addFunction(String name, FunctionMap funct) {
+	public void addFunction(String name, Function funct) {
 		functions.put(name, funct);
 	}
 }

@@ -23,11 +23,12 @@ nmbr:	(INT|DBL)											#int
 	
 powtypes:	(nmbr|'('expr')');
 
-func:	ID nmbr? '(' expr (',' expr)* ')'					#function
+func:	('f\''|'F') '(' ID ',' expr (',' expr)? ')'			#diffint
+	|	ID nmbr? '(' expr (',' expr)* ')'					#function
 	|	ID '(' ID (',' ID)* ')' '=' expr					#function_def
 	;	
 
-ID  :   [a-zA-Z]+;      
+ID  :   [a-zA-Z]+;    
 INT :   [0-9]+;      
 DBL :	[0-9]*[.]?[0-9]+;   	
 WS  :   [ \t]+ -> skip; 							// skip whitespaces
